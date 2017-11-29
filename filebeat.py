@@ -4,12 +4,17 @@
 使用Python简单实现filebeat(https://www.elastic.co/products/beats/filebeat)逻辑,推送数据到下游
 
 Authors: iyaozhen
+
 Date: 2016-04-20
 
 Since 1.1:
 增加子进程 shell 命令"注释"，防止别人误杀进程
 Since 1.2:
 增加beat.hostname、beat.ip、host字段
+
+Date: 2017-11-30
+Authors: feran
+根据公司业务修改添加部分模块
 """
 
 import socket
@@ -168,6 +173,48 @@ class FileBeat(object):
             return random.choice(real_sockets.keys())
         else:
             return False
+
+    def ip_mac_mapping():
+        """
+        根据mysql的kea数据库来更新redis的数据库,内容为key:ip,value:mac
+        Args:
+            mysql:mysql连接
+            redis:redis连接
+        Returns:
+            bool
+        """
+        pass
+
+    def data_yuchuli():
+        """
+        原始日志直接为json或者经过处理后成为json格式的日志数据传进来进行预处理
+        re修复特殊字符bug,并且进行json解析返回
+        可以直接传进来的日志:Nginx:access.log, Tomcat:portal.log
+        Args:
+            raw_data:未处理的日志
+        Returns:
+            data:json解析后的data,type为字典
+        """
+        pass
+    
+    def data_insert_usermac():
+        """
+        json解析后的data传进来,根据data['userip']取到MAC后添加字段data['usermac']=usermac
+        如果没能取到MAC重试3次,都失败的话此ip暂时拉黑填入MAC AAAAAAAAAAAA
+        Args:
+            data:通过data_yuchuli()预处理过的data
+            redis:redis连接
+        Returns:
+            data:添加过'usermac'字段后的data
+        """
+        pass
+    
+    def data_dhcp_split():
+        pass
+    
+    def data_dns_split():
+        pass
+    
 
     @staticmethod
     def __list_in_string(search, string):
