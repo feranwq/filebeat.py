@@ -19,12 +19,16 @@ Authors: feran
 
 import socket
 import time
+import datetime
 import json
 import subprocess
 import select
 import random
 import sys
 import os
+import re
+import redis
+import pymysql.cursors
 import logging
 import logging.handlers
 
@@ -212,10 +216,12 @@ class FileBeat(object):
                 usermac = redis_conn.get(userip)
                 if usermac:
                     data_json['usermac'] = usermac
+                    break
                 else:
                     cls.mysql_to_redis(mysql_conn, redis_conn)
             else:
                 logging.warning("can not get usermac from redis,user ip %s, set user mac AAAAAAAAAAAA" % userip)
+                data_json['usermac'] = "AAAAAAAAAAAA"
                 redis_conn.set(userip, "AAAAAAAAAAAA")
                 redis_conn.expire(userip, 3600)
         except Exception, e:
@@ -223,17 +229,22 @@ class FileBeat(object):
             sys.exit()
 
 
-    @staticmethod
-    def data_kea_yuchuli(rawdata):
-        re_kea = r'(\d+-\d+-\d+ \d+:\d+:\d+\.\d+) .+? \[.*\] DHCP4_PACKET_([A-Z]{4,}) \[hwtype=1 ([a-z|0-9|:].+)\], cid=*.+ (DHCP[A-Z].+) \(.*\) .*from ([0-9|\.].+) to ([0-9|\.].+) on interface .*'
-        red_kea = re.match(re_kea, rawdata)
-        return json.dumps({'time': red_kea.group(1), 'action': red_kea.group(2), 'keatype': red_kea.group(3),
-                           'usermac': red_kea.group(4), 'destination': red_kea.group(6), 'source': red_kea.group(5)})
+#    @staticmethod
+#    def data_kea_yuchuli(rawdata):
+#        try:
+#            re_kea = r'(\d+-\d+-\d+ \d+:\d+:\d+\.\d+) .+? \[.*\] DHCP4_PACKET_([A-Z]{4,}) \[hwtype=1 ([a-z|0-9|:].+)\], cid=*.+ (DHCP[A-Z].+) \(.*\) .*from ([0-9|\.].+) to ([0-9|\.].+) on interface .*'
+#            red_kea = re.match(re_kea, rawdata)
+#            return json.dumps({'time': red_kea.group(1), 'action': red_kea.group(2), 'keatype': red_kea.group(3), 'usermac': red_kea.group(4), 'destination': red_kea.group(6), 'source': red_kea.group(5)})
+#        except:
+#            pass
     @staticmethod
     def data_dnsmasq_yuchuli(rawdata):
-        re_dns = r'([A-Z].+:\d+) .*\] ([a-z].*) from ((\d+.){3}(\d+))'
-        red_dns = re.match(re_dns, rawdata)
-        return json.dumps({'time': red_dns.group(1), 'userip': red_dns.group(3), 'querydomain': red_dns.group(2)})
+        try:
+            re_dns = r'([A-Z].+:\d+) .*\] ([a-z].*) from ((\d+.){3}(\d+))'
+            red_dns = re.match(re_dns, rawdata)
+            return json.dumps({'time': red_dns.group(1), 'userip': red_dns.group(3), 'querydomain': red_dns.group(2)})
+        except:
+            pass
 
     @staticmethod
     def data_jsonlog(json_data):
@@ -247,8 +258,11 @@ class FileBeat(object):
             data:json解析后的data,type为字典
         """
         regex = re.compile(r'\\(?![/u"])')
-        fixed = regex.sub(r"\\\\", json_data)
-        data = json.loads(fixed)
+        try:
+            fixed = regex.sub(r"\\\\", json_data)
+            data = json.loads(fixed)
+        except:
+            data = json.load(json_data)
         return data
 
 
@@ -262,13 +276,14 @@ class FileBeat(object):
             rawdata:
         :return: 
         """
+        re_dns = r'([A-Z].+:\d+) .*\] ([a-z].*) from ((\d+.){3}(\d+))'
         switch = {
-            "kea": cls.data_kea_yuchuli(rawdata),
+            # "kea": cls.data_kea_yuchuli(rawdata),
             "dnsmasq": cls.data_dnsmasq_yuchuli(rawdata),
             "nginx": rawdata,
             "tomcat": rawdata
         }
-        return data_jsonlog(switch[logtype])
+        return cls.data_jsonlog(switch.get(logtype))
 
 
 
@@ -477,8 +492,8 @@ def run():
     redis_config = {
         'host': conf['redis']['host'],
         'port': conf['redis']['prot'],
-        'db': conf['redis']['db'],
-        'password': conf['redis']['password'],
+        'db': conf['redis']['db']
+        # 'password': conf['redis']['password'],
     }
     mysql_conn = pymysql.connect(**mysql_config)
     redis_conn = redis.StrictRedis(**redis_config)

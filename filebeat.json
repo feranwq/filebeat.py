@@ -2,11 +2,11 @@
     "filebeat": {
         "path": "/opt/pyfilebeat/test",
         "date_ext": null,
-        "include_lines": ["userip"],
+        "include_lines": null,
         "exclude_lines": null,
         "encoding": "utf-8",
         "from_head": true,
-        "logtype": "nginx",
+        "logtype": "dnsmasq",
         "fields": {
             "type": "testtype"
         }
@@ -26,6 +26,7 @@
     "redis": {
         "host": "127.0.0.1",
         "prot": 6379,
-        "db": 0
+        "db": 0,
+        "password":"password"
     }
 }
