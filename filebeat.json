@@ -1,19 +1,31 @@
 {
     "filebeat": {
-        "path": "/home/work/apache/logs/access_log.%s",
-        "date_ext": "%Y%m%d%H",
-        "include_lines": ["LOG ERROR", "LOG WARNING"],
+        "path": "/opt/pyfilebeat/test",
+        "date_ext": null,
+        "include_lines": ["userip"],
         "exclude_lines": null,
         "encoding": "utf-8",
         "from_head": true,
+        "logtype": "nginx",
         "fields": {
-            "app_name": "filebeat_python"
+            "type": "testtype"
         }
     },
     "logstash": {
         "hosts": [
-            "00.00.00.01:5055",
-            "00.00.00.02:5055"
+            "127.0.0.1:15151"
         ]
+    },
+    "mysql": {
+        "user": "user",
+        "password": "password",
+        "host": "127.0.0.1",
+        "db": "dhcp_lease",
+        "charset": "utf8mb4"
+    },
+    "redis": {
+        "host": "127.0.0.1",
+        "prot": 6379,
+        "db": 0
     }
 }

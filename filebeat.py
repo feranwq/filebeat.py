@@ -59,14 +59,14 @@ class FileBeat(object):
             return False
         else:
             # 数据封装
-            packet_data = {
-                'message': data.encode('utf8', 'ignore')
-            }
+            # packet_data = {
+            #     'message': data.encode('utf8', 'ignore')
+            # }
             # 添加自定义字段
             if fields is not None:
                 for key, value in fields.iteritems():
-                    packet_data[key] = value
-            packet_data = json.dumps(packet_data) + '\r\n'
+                    data[key] = value
+            packet_data = json.dumps(data) + '\r\n'
 
             # 随机选取出一个有效的socket通道
             random_address = cls.__random_choice_socket(sockets)
@@ -174,47 +174,103 @@ class FileBeat(object):
         else:
             return False
 
-    def ip_mac_mapping():
+    @staticmethod
+    def mysql_to_redis(mysql_conn=None, redis_conn=None):
         """
-        根据mysql的kea数据库来更新redis的数据库,内容为key:ip,value:mac
+        传入mysql连接和redis连接,根据mysql查询到的ip与mac对应关系,同步到redis数据库
+        KEY为IP,VALUE为MAC,过期时间14400秒
         Args:
-            mysql:mysql连接
-            redis:redis连接
-        Returns:
-            bool
+            mysql_conn:
+            redis_conn:
+        :return: bool
         """
-        pass
+        if mysql_conn and redis_conn:
+            with mysql_conn.cursor() as cursor:
+                # Create a new record
+                sql = "SELECT inet_ntoa(address),hex(hwaddr),expire,count(distinct address) from lease4 where expire>(%s) group by address"
+                cursor.execute(sql, (datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S")))
+                result = cursor.fetchall()
+                for i in result:
+                    redis_conn.set(i['inet_ntoa(address)'], i['hex(hwaddr)'])
+                    redis_conn.expire(i['inet_ntoa(address)'], 14400)
 
-    def data_yuchuli():
+    @classmethod
+    def data_insert_usermac(cls, data_json, mysql_conn=None, redis_conn=None):
+        """
+        json解析后的data传进来,根据data['userip']取到MAC后添加字段data['usermac']=usermac
+        如果没能取到MAC重试2次,都失败的话此ip暂时拉黑填入MAC AAAAAAAAAAAA,过期时间3600秒
+        Args:
+            data_json:data_jsonlog()预处理过的data
+            mysql_conn:
+            redis_conn:redis连接
+        Returns:
+            data:添加过'usermac'字段后的data
+        """
+        try:
+            userip = data_json['userip']
+            for i in xrange(2):
+                usermac = redis_conn.get(userip)
+                if usermac:
+                    data_json['usermac'] = usermac
+                else:
+                    cls.mysql_to_redis(mysql_conn, redis_conn)
+            else:
+                logging.warning("can not get usermac from redis,user ip %s, set user mac AAAAAAAAAAAA" % userip)
+                redis_conn.set(userip, "AAAAAAAAAAAA")
+                redis_conn.expire(userip, 3600)
+        except Exception, e:
+            logging.warning("user mac insert faild,please check #publish_to_logstash() %s" % e)
+            sys.exit()
+
+
+    @staticmethod
+    def data_kea_yuchuli(rawdata):
+        re_kea = r'(\d+-\d+-\d+ \d+:\d+:\d+\.\d+) .+? \[.*\] DHCP4_PACKET_([A-Z]{4,}) \[hwtype=1 ([a-z|0-9|:].+)\], cid=*.+ (DHCP[A-Z].+) \(.*\) .*from ([0-9|\.].+) to ([0-9|\.].+) on interface .*'
+        red_kea = re.match(re_kea, rawdata)
+        return json.dumps({'time': red_kea.group(1), 'action': red_kea.group(2), 'keatype': red_kea.group(3),
+                           'usermac': red_kea.group(4), 'destination': red_kea.group(6), 'source': red_kea.group(5)})
+    @staticmethod
+    def data_dnsmasq_yuchuli(rawdata):
+        re_dns = r'([A-Z].+:\d+) .*\] ([a-z].*) from ((\d+.){3}(\d+))'
+        red_dns = re.match(re_dns, rawdata)
+        return json.dumps({'time': red_dns.group(1), 'userip': red_dns.group(3), 'querydomain': red_dns.group(2)})
+
+    @staticmethod
+    def data_jsonlog(json_data):
         """
         原始日志直接为json或者经过处理后成为json格式的日志数据传进来进行预处理
         re修复特殊字符bug,并且进行json解析返回
         可以直接传进来的日志:Nginx:access.log, Tomcat:portal.log
         Args:
-            raw_data:未处理的日志
+            json_data:已经是json格式但还没有json.loads的data
         Returns:
             data:json解析后的data,type为字典
         """
-        pass
-    
-    def data_insert_usermac():
+        regex = re.compile(r'\\(?![/u"])')
+        fixed = regex.sub(r"\\\\", json_data)
+        data = json.loads(fixed)
+        return data
+
+
+
+    @classmethod
+    def log_type_switch(cls, logtype, rawdata):
         """
-        json解析后的data传进来,根据data['userip']取到MAC后添加字段data['usermac']=usermac
-        如果没能取到MAC重试3次,都失败的话此ip暂时拉黑填入MAC AAAAAAAAAAAA
+        根据filebeat.json里的logtype来执行不同日志格式的处理,完成后返回处理好的json格式日志
         Args:
-            data:通过data_yuchuli()预处理过的data
-            redis:redis连接
-        Returns:
-            data:添加过'usermac'字段后的data
+            logtype:
+            rawdata:
+        :return: 
         """
-        pass
-    
-    def data_dhcp_split():
-        pass
-    
-    def data_dns_split():
-        pass
-    
+        switch = {
+            "kea": cls.data_kea_yuchuli(rawdata),
+            "dnsmasq": cls.data_dnsmasq_yuchuli(rawdata),
+            "nginx": rawdata,
+            "tomcat": rawdata
+        }
+        return data_jsonlog(switch[logtype])
+
+
 
     @staticmethod
     def __list_in_string(search, string):
@@ -408,20 +464,38 @@ def run():
     from_head = conf['filebeat']['from_head'] if 'from_head' in conf['filebeat'] else True
     fields = conf['filebeat']['fields']
 
-    beat_hostname = socket.gethostname()
-    try:
-        ip_address = subprocess.check_output(["hostname", "-i"]).rstrip()
-    except subprocess.CalledProcessError:
-        ip_address = beat_hostname
-    # 高版本系统使用 -I 参数获取本机ip
-    if ip_address == beat_hostname or ip_address == '127.0.0.1' or ip_address == 'localhost':
-        try:
-            ip_address = subprocess.check_output(["hostname", "-I"]).rstrip()
-        except subprocess.CalledProcessError:
-            pass
-    fields['beat.hostname'] = beat_hostname
-    fields['beat.ip'] = ip_address
-    fields['host'] = beat_hostname
+    logtype = conf['filebeat']['logtype']
+
+    mysql_config = {
+        'user': conf['mysql']['user'],
+        'password': conf['mysql']['password'],
+        'host': conf['mysql']['host'],
+        'db': conf['mysql']['db'],
+        'charset': conf['mysql']['charset'],
+        'cursorclass': pymysql.cursors.DictCursor
+    }
+    redis_config = {
+        'host': conf['redis']['host'],
+        'port': conf['redis']['prot'],
+        'db': conf['redis']['db'],
+        'password': conf['redis']['password'],
+    }
+    mysql_conn = pymysql.connect(**mysql_config)
+    redis_conn = redis.StrictRedis(**redis_config)
+    # beat_hostname = socket.gethostname()
+    # try:
+    #     ip_address = subprocess.check_output(["hostname", "-i"]).rstrip()
+    # except subprocess.CalledProcessError:
+    #     ip_address = beat_hostname
+    # # 高版本系统使用 -I 参数获取本机ip
+    # if ip_address == beat_hostname or ip_address == '127.0.0.1' or ip_address == 'localhost':
+    #     try:
+    #         ip_address = subprocess.check_output(["hostname", "-I"]).rstrip()
+    #     except subprocess.CalledProcessError:
+    #         pass
+    # fields['beat.hostname'] = beat_hostname
+    # fields['beat.ip'] = ip_address
+    # fields['host'] = beat_hostname
 
     sockets = FileBeat.get_sockets(logstash_hosts)
     if sockets is False:
@@ -448,7 +522,10 @@ def run():
                     # 统一转换为unicode编码
                     data_unicode = data.decode(encoding, 'ignore')
                     if FileBeat.data_filter(data_unicode, include_lines, exclude_lines):
-                        if FileBeat.publish_to_logstash(sockets, data_unicode, fields) is False:
+                        data_json = FileBeat.log_type_switch(logtype, data_unicode)
+                        if 'usermac' not in data_json.keys():
+                            FileBeat.data_insert_usermac(data_json, mysql_conn, redis_conn)
+                        if FileBeat.publish_to_logstash(sockets, data_json, fields) is False:
                             logging.error("publish to logstash fail [%s]" % data)
                         else:
                             logging.info("publish to logstash success")
