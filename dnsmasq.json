@@ -1,0 +1,32 @@
+{
+    "filebeat": {
+        "path": "/opt/pyfilebeat/test",
+        "date_ext": null,
+        "include_lines": ["query"],
+        "exclude_lines": null,
+        "encoding": "utf-8",
+        "from_head": true,
+        "logtype": "dnsmasq",
+        "fields": {
+            "type": "testtype"
+        }
+    },
+    "logstash": {
+        "hosts": [
+            "127.0.0.1:15151"
+        ]
+    },
+    "mysql": {
+        "user": "user",
+        "password": "password",
+        "host": "127.0.0.1",
+        "db": "dhcp_lease",
+        "charset": "utf8mb4"
+    },
+    "redis": {
+        "host": "127.0.0.1",
+        "prot": 6379,
+        "db": 0,
+        "\\password":"password"
+    }
+}

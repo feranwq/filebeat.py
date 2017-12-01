@@ -2,11 +2,11 @@
     "filebeat": {
         "path": "/opt/pyfilebeat/test",
         "date_ext": null,
-        "include_lines": null,
+        "include_lines": ["DHCP4_PACKET_RECEIVED", "DHCP4_PACKET_SEND"],
         "exclude_lines": null,
         "encoding": "utf-8",
         "from_head": true,
-        "logtype": "dnsmasq",
+        "logtype": "kea",
         "fields": {
             "type": "testtype"
         }
@@ -27,6 +27,6 @@
         "host": "127.0.0.1",
         "prot": 6379,
         "db": 0,
-        "password":"password"
+        "\\password":"password"
     }
 }

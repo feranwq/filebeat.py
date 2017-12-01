@@ -228,21 +228,24 @@ class FileBeat(object):
             logging.warning("user mac insert faild,please check #publish_to_logstash() %s" % e)
             sys.exit()
 
+    @staticmethod
+    def data_kea_yuchuli(rawdata):
+        try:
+            pre_dhcp = re.compile(r'(\d{4}-\d{1,2}-\d{1,2} \d{1,2}:\d{1,2}:\d{1,2}).*?(\w{2}:\w{2}:\w{2}:\w{2}:\w{2}:\w{2}).*?([A-Z]+).*?$')
+            re_kea = re.match(pre_dhcp, rawdata)
+            json_data = {"time": re_kea.group(1), "keatype": re_kea.group(3), "usermac": re_kea.group(2)}
+            return json_data
+        except:
+            pass
 
-#    @staticmethod
-#    def data_kea_yuchuli(rawdata):
-#        try:
-#            re_kea = r'(\d+-\d+-\d+ \d+:\d+:\d+\.\d+) .+? \[.*\] DHCP4_PACKET_([A-Z]{4,}) \[hwtype=1 ([a-z|0-9|:].+)\], cid=*.+ (DHCP[A-Z].+) \(.*\) .*from ([0-9|\.].+) to ([0-9|\.].+) on interface .*'
-#            red_kea = re.match(re_kea, rawdata)
-#            return json.dumps({'time': red_kea.group(1), 'action': red_kea.group(2), 'keatype': red_kea.group(3), 'usermac': red_kea.group(4), 'destination': red_kea.group(6), 'source': red_kea.group(5)})
-#        except:
-#            pass
+
     @staticmethod
     def data_dnsmasq_yuchuli(rawdata):
         try:
-            re_dns = r'([A-Z].+:\d+) .*\] ([a-z].*) from ((\d+.){3}(\d+))'
-            red_dns = re.match(re_dns, rawdata)
-            return json.dumps({'time': red_dns.group(1), 'userip': red_dns.group(3), 'querydomain': red_dns.group(2)})
+            pre_dns = re.compile(r'(\w{2,3} \d{1,2} \d{1,2}:\d{1,2}:\d{1,2}).*?: (.*?) (.*?) .*?(\w+.\w+.\w+.\w+)$')
+            re_dns = re.match(pre_dns, rawdata)
+            json_data = {"time": re_dns.group(1), "userip": re_dns.group(4), "querydomain": re_dns.group(3)}
+            return json_data
         except:
             pass
 
@@ -257,12 +260,12 @@ class FileBeat(object):
         Returns:
             data:json解析后的data,type为字典
         """
-        regex = re.compile(r'\\(?![/u"])')
         try:
+            regex = re.compile(r'\\(?![/u"])')
             fixed = regex.sub(r"\\\\", json_data)
             data = json.loads(fixed)
         except:
-            data = json.load(json_data)
+            data = json.loads(json_data)
         return data
 
 
@@ -276,9 +279,9 @@ class FileBeat(object):
             rawdata:
         :return: 
         """
-        re_dns = r'([A-Z].+:\d+) .*\] ([a-z].*) from ((\d+.){3}(\d+))'
+
         switch = {
-            # "kea": cls.data_kea_yuchuli(rawdata),
+            "kea": cls.data_kea_yuchuli(rawdata),
             "dnsmasq": cls.data_dnsmasq_yuchuli(rawdata),
             "nginx": rawdata,
             "tomcat": rawdata
