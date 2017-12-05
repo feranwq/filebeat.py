@@ -231,10 +231,14 @@ class FileBeat(object):
     @staticmethod
     def data_kea_yuchuli(rawdata):
         try:
-            pre_dhcp = re.compile(r'(\d{4}-\d{1,2}-\d{1,2} \d{1,2}:\d{1,2}:\d{1,2}).*?(\w{2}:\w{2}:\w{2}:\w{2}:\w{2}:\w{2}).*?([A-Z]+).*?$')
+            pre_dhcp = re.compile(r'(\d{4}-\d{1,2}-\d{1,2} +\d{1,2}:\d{1,2}:\d{1,2}).*?(\w{2}:\w{2}:\w{2}:\w{2}:\w{2}:\w{2}).*?([A-Z]+).*?$')
             re_kea = re.match(pre_dhcp, rawdata)
             json_data = {"time": re_kea.group(1), "keatype": re_kea.group(3), "usermac": re_kea.group(2)}
-            return json_data
+            if json_data:
+                return json_data
+            else:
+                json_data = {"usermac": "BBBBBBBBBBBB", "errmsg": rawdata}
+                return json_data
         except:
             pass
 
@@ -242,10 +246,14 @@ class FileBeat(object):
     @staticmethod
     def data_dnsmasq_yuchuli(rawdata):
         try:
-            pre_dns = re.compile(r'(\w{2,3} \d{1,2} \d{1,2}:\d{1,2}:\d{1,2}).*?: (.*?) (.*?) .*?(\w+.\w+.\w+.\w+)$')
+            pre_dns = re.compile(r'(\w{2,3} +\d{1,2} +\d{1,2}:\d{1,2}:\d{1,2}).*?: (.*?) (.*?) .*?(\w+.\w+.\w+.\w+)$')
             re_dns = re.match(pre_dns, rawdata)
             json_data = {"time": re_dns.group(1), "userip": re_dns.group(4), "querydomain": re_dns.group(3)}
-            return json_data
+            if json_data:
+                return json_data
+            else:
+                json_data = {"usermac": "BBBBBBBBBBBB", "errmsg": rawdata}
+                return json_data
         except:
             pass
 
@@ -265,7 +273,7 @@ class FileBeat(object):
             fixed = regex.sub(r"\\\\", json_data)
             data = json.loads(fixed)
         except:
-            data = json.loads(json_data)
+            data = json_data
         return data
 
 
@@ -277,7 +285,7 @@ class FileBeat(object):
         Args:
             logtype:
             rawdata:
-        :return: 
+        :return:
         """
 
         switch = {
