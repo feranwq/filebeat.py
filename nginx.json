@@ -1,6 +1,6 @@
 {
     "filebeat": {
-        "path": "/opt/pyfilebeat/test",
+        "path": "/opt/nginx/logs/access.log",
         "date_ext": null,
         "include_lines": ["userip"],
         "exclude_lines": null,
@@ -8,23 +8,23 @@
         "from_head": true,
         "logtype": "nginx",
         "fields": {
-            "type": "testtype"
+            "type": "qingdaonginx"
         }
     },
     "logstash": {
         "hosts": [
-            "127.0.0.1:15151"
+            "192.168.3.251:15151"
         ]
     },
     "mysql": {
         "user": "user",
         "password": "password",
-        "host": "127.0.0.1",
+        "host": "192.168.3.251",
         "db": "dhcp_lease",
         "charset": "utf8mb4"
     },
     "redis": {
-        "host": "127.0.0.1",
+        "host": "192.168.3.251",
         "prot": 6379,
         "db": 0
     }

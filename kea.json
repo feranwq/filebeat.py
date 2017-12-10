@@ -1,6 +1,6 @@
 {
     "filebeat": {
-        "path": "/opt/pyfilebeat/test",
+        "path": "/var/log/kea-packets-50.log",
         "date_ext": null,
         "include_lines": ["DHCP4_PACKET_RECEIVED", "DHCP4_PACKET_SEND"],
         "exclude_lines": null,
@@ -8,23 +8,23 @@
         "from_head": true,
         "logtype": "kea",
         "fields": {
-            "type": "testtype"
+            "type": "qingdaokea"
         }
     },
     "logstash": {
         "hosts": [
-            "127.0.0.1:15151"
+            "192.168.3.251:15151"
         ]
     },
     "mysql": {
         "user": "user",
         "password": "password",
-        "host": "127.0.0.1",
+        "host": "192.168.3.251",
         "db": "dhcp_lease",
         "charset": "utf8mb4"
     },
     "redis": {
-        "host": "127.0.0.1",
+        "host": "192.168.3.251",
         "prot": 6379,
         "db": 0,
         "\\password":"password"

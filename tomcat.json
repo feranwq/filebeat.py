@@ -1,14 +1,14 @@
 {
     "filebeat": {
-        "path": "/var/log/dnsmasq/dnsmasq.log",
+        "path": "/opt/logs/wifiportal/portal.log",
         "date_ext": null,
-        "include_lines": ["query[A]","query[AAAA]"],
+        "include_lines": ["usermac"],
         "exclude_lines": null,
         "encoding": "utf-8",
         "from_head": true,
-        "logtype": "dnsmasq",
+        "logtype": "tomcat",
         "fields": {
-            "type": "qingdaodns"
+            "type": "xishuangbannatomcat"
         }
     },
     "logstash": {
@@ -26,7 +26,6 @@
     "redis": {
         "host": "192.168.3.251",
         "prot": 6379,
-        "db": 0,
-        "\\password":"password"
+        "db": 0
     }
 }

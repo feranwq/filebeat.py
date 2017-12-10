@@ -16,5 +16,8 @@ nohup python filebeat.py filebeat.json &
     - encoding: 文件编码
     - from_head: 是否重头读取当前文件，和原版 filebeat 的 `tail_files` 配置项功能类似，但是设置为 `True`（默认）时启停进程会重复读取文件，设置为 `False` 会丢数据
     - fields: 需要添加的自定义字段
+    - logtype: 日志类型,目前支持 nginx/tomcat/kea/dnsmasrq
 - logstash
     - hosts: logstash 地址（input=tcp）
+- mysql MYSQL连接相关参数,针对需要补充MAC地址的日志需要配置
+- redis REDIS连接相关参数,针对需要补充MAC地址的日志需要配置

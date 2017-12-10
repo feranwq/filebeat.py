@@ -240,7 +240,8 @@ class FileBeat(object):
                 json_data = {"usermac": "BBBBBBBBBBBB", "errmsg": rawdata}
                 return json_data
         except:
-            pass
+            json_data = {"usermac": "BBBBBBBBBBBB", "errmsg": rawdata}
+            return json_data
 
 
     @staticmethod
@@ -255,7 +256,8 @@ class FileBeat(object):
                 json_data = {"usermac": "BBBBBBBBBBBB", "errmsg": rawdata}
                 return json_data
         except:
-            pass
+            json_data = {"usermac": "BBBBBBBBBBBB", "errmsg": rawdata}
+            return json_data
 
     @staticmethod
     def data_jsonlog(json_data):
