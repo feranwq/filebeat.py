@@ -1,14 +1,14 @@
 {
     "filebeat": {
-        "path": "/opt/logs/wifiportal/portal.log",
+        "path": "/var/log/dpi.log",
         "date_ext": null,
-        "include_lines": ["usermac"],
+        "include_lines": ["userip"],
         "exclude_lines": null,
         "encoding": "utf-8",
         "from_head": true,
         "logtype": "json",
         "fields": {
-            "type": "xishuangbannatomcat"
+            "type": "qingdaodpi"
         }
     },
     "logstash": {

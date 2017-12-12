@@ -2,16 +2,12 @@
 # -*- coding: utf-8 -*-
 """
 使用Python简单实现filebeat(https://www.elastic.co/products/beats/filebeat)逻辑,推送数据到下游
-
 Authors: iyaozhen
-
 Date: 2016-04-20
-
 Since 1.1:
 增加子进程 shell 命令"注释"，防止别人误杀进程
 Since 1.2:
 增加beat.hostname、beat.ip、host字段
-
 Date: 2017-11-30
 Authors: feran
 根据公司业务修改添加部分模块
@@ -54,7 +50,6 @@ class FileBeat(object):
             data: 需要推送的数据
             fields: 自定义字段
             timeout: 某个logtash节点挂掉超时等待时间
-
         Returns:
             如果成功返回已发送内容的字节大小,失败返回False
         """
@@ -103,7 +98,6 @@ class FileBeat(object):
         根据配置信息建立tcp连接
         Args:
             address: host:name字符串
-
         Returns:
             建立成功返回socket对象, 失败返回False
         """
@@ -123,7 +117,6 @@ class FileBeat(object):
         根据一批配置信息建立tcp连接
         Args:
             addresses: host:name的list
-
         Returns:
             返回每个addresse对应的socket(字典), 全部连接失败返回False
         """
@@ -142,7 +135,6 @@ class FileBeat(object):
         重建连接
         Args:
             sockets: socket dict
-
         Returns:
             None
         """
@@ -156,7 +148,6 @@ class FileBeat(object):
         检查已经建立连接的sockets是否都挂了
         Args:
             sockets: socket dict
-
         Returns:
             bool
         """
@@ -191,7 +182,7 @@ class FileBeat(object):
         if mysql_conn and redis_conn:
             with mysql_conn.cursor() as cursor:
                 # Create a new record
-                sql = "SELECT inet_ntoa(address),hex(hwaddr),expire,count(distinct address) from lease4 where expire>(%s) group by address"
+                sql = "SELECT inet_ntoa(address),hex(hwaddr),expire from lease4 where expire>(%s) group by expire"
                 cursor.execute(sql, (datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S")))
                 result = cursor.fetchall()
                 for i in result:
@@ -214,7 +205,7 @@ class FileBeat(object):
             userip = data_json['userip']
             for i in xrange(2):
                 usermac = redis_conn.get(userip)
-                if usermac:
+                if usermac and len(usermac) > 10:
                     data_json['usermac'] = usermac
                     break
                 else:
@@ -293,8 +284,7 @@ class FileBeat(object):
         switch = {
             "kea": cls.data_kea_yuchuli(rawdata),
             "dnsmasq": cls.data_dnsmasq_yuchuli(rawdata),
-            "nginx": rawdata,
-            "tomcat": rawdata
+            "json": rawdata,
         }
         return cls.data_jsonlog(switch.get(logtype))
 
@@ -307,7 +297,6 @@ class FileBeat(object):
         Args:
             search: list, 需要去string中查找的字符串集
             string: 字符串
-
         Returns:
             bool
         """
@@ -321,7 +310,6 @@ class FileBeat(object):
             data: 获取到的数据
             include_lines: 需要包含的行
             exclude_lines: 需要排除的行
-
         Returns:
             bool
         """
@@ -354,9 +342,7 @@ class FileBeat(object):
         Args:
             file_path: 文件路径
             from_head: 是否重头开始读取文件
-
         Returns:
-
         """
         # 安全注释, 防止OP不小心kill子进程
         safe_comment = "'(Do not kill me, parent PID: %d)'" % os.getpid()
@@ -385,7 +371,6 @@ class FileBeat(object):
         Args:
             file_path: 文件基础路径
             file_ext: 文件后缀(时间戳参数)
-
         Returns:
             string
         """
@@ -400,7 +385,6 @@ class FileBeat(object):
         检查文件是否存在且不为空
         Args:
             file_path: 文件路径
-
         Returns:
             bool
         """
@@ -408,12 +392,11 @@ class FileBeat(object):
             else False
 
     @staticmethod
-    def init_log(log_path, level=logging.INFO, when="D", backup=7,
+    def init_log(log_path, level=logging.ERROR, when="D", backup=7,
                  log_format="%(levelname)s: %(asctime)s: %(filename)s:%(lineno)d * %(thread)d %(message)s",
                  datefmt="%m-%d %H:%M:%S"):
         """
         init_log - initialize log module
-
         Args:
           log_path:      - Log file path prefix.
                            Log data will go to two files: log_path.log and log_path.log.wf
@@ -435,11 +418,9 @@ class FileBeat(object):
                            %(levelname)s: %(asctime)s: %(filename)s:%(lineno)d * %(thread)d %(message)s
                            INFO: 12-09 18:02:42: log.py:40 * 139814749787872 HELLO WORLD
           datefmt:        - log date format
-
         Raises:
             OSError: fail to create log directories
             IOError: fail to open log file
-
         Returns:
             None
         """
@@ -470,9 +451,8 @@ def run():
     """
     运行任务
     Returns:
-
     """
-    FileBeat.init_log("./filebeat", logging.DEBUG)
+    FileBeat.init_log("./filebeat", logging.ERROR)
 
     try:
         conf_file = sys.argv[1]
@@ -551,12 +531,15 @@ def run():
                     data_unicode = data.decode(encoding, 'ignore')
                     if FileBeat.data_filter(data_unicode, include_lines, exclude_lines):
                         data_json = FileBeat.log_type_switch(logtype, data_unicode)
-                        if 'usermac' not in data_json.keys():
-                            FileBeat.data_insert_usermac(data_json, mysql_conn, redis_conn)
-                        if FileBeat.publish_to_logstash(sockets, data_json, fields) is False:
-                            logging.error("publish to logstash fail [%s]" % data)
-                        else:
-                            logging.info("publish to logstash success")
+                        try:
+                            if 'usermac' not in data_json.keys():
+                                FileBeat.data_insert_usermac(data_json, mysql_conn, redis_conn)
+                            if FileBeat.publish_to_logstash(sockets, data_json, fields) is False:
+                                logging.error("publish to logstash fail [%s]" % data)
+                            else:
+                                logging.info("publish to logstash success")
+                        except:
+                            logging.error("data format to json fail, [%s]" % data)
                 else:
                     # 若当前目标日志文件名变化, 则跳出循环, 读取新的文件
                     current_file_path = FileBeat.get_current_path(file_path, file_date_ext)

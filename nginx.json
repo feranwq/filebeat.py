@@ -6,7 +6,7 @@
         "exclude_lines": null,
         "encoding": "utf-8",
         "from_head": true,
-        "logtype": "nginx",
+        "logtype": "json",
         "fields": {
             "type": "qingdaonginx"
         }
