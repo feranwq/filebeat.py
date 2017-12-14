@@ -16,13 +16,6 @@
             "192.168.3.251:15151"
         ]
     },
-    "mysql": {
-        "user": "user",
-        "password": "password",
-        "host": "192.168.3.251",
-        "db": "dhcp_lease",
-        "charset": "utf8mb4"
-    },
     "redis": {
         "host": "192.168.3.251",
         "prot": 6379,

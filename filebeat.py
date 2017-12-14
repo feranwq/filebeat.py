@@ -24,7 +24,6 @@ import sys
 import os
 import re
 import redis
-import pymysql.cursors
 import logging
 import logging.handlers
 
@@ -169,28 +168,9 @@ class FileBeat(object):
         else:
             return False
 
-    @staticmethod
-    def mysql_to_redis(mysql_conn=None, redis_conn=None):
-        """
-        传入mysql连接和redis连接,根据mysql查询到的ip与mac对应关系,同步到redis数据库
-        KEY为IP,VALUE为MAC,过期时间14400秒
-        Args:
-            mysql_conn:
-            redis_conn:
-        :return: bool
-        """
-        if mysql_conn and redis_conn:
-            with mysql_conn.cursor() as cursor:
-                # Create a new record
-                sql = "SELECT inet_ntoa(address),hex(hwaddr),expire from lease4 where expire>(%s) group by expire"
-                cursor.execute(sql, (datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S")))
-                result = cursor.fetchall()
-                for i in result:
-                    redis_conn.set(i['inet_ntoa(address)'], i['hex(hwaddr)'])
-                    redis_conn.expire(i['inet_ntoa(address)'], 14400)
 
     @classmethod
-    def data_insert_usermac(cls, data_json, mysql_conn=None, redis_conn=None):
+    def data_insert_usermac(cls, data_json, redis_conn=None):
         """
         json解析后的data传进来,根据data['userip']取到MAC后添加字段data['usermac']=usermac
         如果没能取到MAC重试2次,都失败的话此ip暂时拉黑填入MAC AAAAAAAAAAAA,过期时间3600秒
@@ -201,61 +181,53 @@ class FileBeat(object):
         Returns:
             data:添加过'usermac'字段后的data
         """
-        try:
-            userip = data_json['userip']
-            for i in xrange(2):
-                usermac = redis_conn.get(userip)
-                if usermac and len(usermac) > 10:
-                    data_json['usermac'] = usermac
-                    break
-                else:
-                    cls.mysql_to_redis(mysql_conn, redis_conn)
-            else:
-                logging.warning("can not get usermac from redis,user ip %s, set user mac AAAAAAAAAAAA" % userip)
-                data_json['usermac'] = "AAAAAAAAAAAA"
-                redis_conn.set(userip, "AAAAAAAAAAAA")
-                redis_conn.expire(userip, 3600)
-        except Exception, e:
-            logging.warning("user mac insert faild,please check #publish_to_logstash() %s" % e)
-            sys.exit()
+        userip = data_json['userip']
+        usermac = redis_conn.get(userip)
+        if usermac and len(usermac) > 10:
+            data_json['usermac'] = usermac
+        else:
+            logging.warning("can not get usermac from redis,user ip %s, set user mac AAAAAAAAAAAA" % userip)
+            data_json['usermac'] = "AAAAAAAAAAAA"
+            redis_conn.set(userip, "AAAAAAAAAAAA")
+            redis_conn.expire(userip, 600)
+
 
     @staticmethod
-    def data_kea_yuchuli(rawdata):
-        try:
-            pre_dhcp = re.compile(r'(\d{4}-\d{1,2}-\d{1,2} +\d{1,2}:\d{1,2}:\d{1,2}).*?(\w{2}:\w{2}:\w{2}:\w{2}:\w{2}:\w{2}).*?([A-Z]+).*?$')
-            re_kea = re.match(pre_dhcp, rawdata)
+    def data_kea_yuchuli(rawdata, redis_conn=None):
+        pre_dhcp = re.compile(r'(\d+-\d+-\d+.*?\d+:\d+:\d+).*?(\w{2}:\w{2}:\w{2}:\w{2}:\w{2}:\w{2}).*?(DHCPDISCOVER|DHCPOFFER|DHCPREQUEST|DHCPACK|DHCPNAK).*?')
+        pre_macmap = re.compile(r'.*?(\w{2}:\w{2}:\w{2}:\w{2}:\w{2}:\w{2}).*?DHCPACK.*?\d+\.\d+\.\d+\.\d+.*?(?!.*255)(\d+\.\d+\.\d+\.\d+)')
+        macmap = re.search(pre_macmap, rawdata)
+        if macmap:
+            redis_conn.set(macmap.group(2), macmap.group(1))
+            redis_conn.expire(macmap.group(2), 10000)
+            logging.warning('update ip: %s mac:%s to redis' % (macmap.group(2), macmap.group(1)))
+        re_kea = re.search(pre_dhcp, rawdata)
+        if re_kea:
             json_data = {"time": re_kea.group(1), "keatype": re_kea.group(3), "usermac": re_kea.group(2)}
-            if json_data:
-                return json_data
-            else:
-                json_data = {"usermac": "BBBBBBBBBBBB", "errmsg": rawdata}
-                return json_data
-        except:
-            json_data = {"usermac": "BBBBBBBBBBBB", "errmsg": rawdata}
             return json_data
+        else:
+            logging.warning("KEA log cannot json format, msg: %s" % rawdata)
+            return False
 
 
     @staticmethod
     def data_dnsmasq_yuchuli(rawdata):
-        try:
-            pre_dns = re.compile(r'(\w{2,3} +\d{1,2} +\d{1,2}:\d{1,2}:\d{1,2}).*?: (.*?) (.*?) .*?(\w+.\w+.\w+.\w+)$')
-            re_dns = re.match(pre_dns, rawdata)
+        pre_dns = re.compile(r'(\w{2,3} +\d{1,2} +\d{1,2}:\d{1,2}:\d{1,2}).*?: (.*?) (.*?) .*?(\w+.\w+.\w+.\w+)$')
+        re_dns = re.match(pre_dns, rawdata)
+        if re_dns:
             json_data = {"time": re_dns.group(1), "userip": re_dns.group(4), "querydomain": re_dns.group(3)}
-            if json_data:
-                return json_data
-            else:
-                json_data = {"usermac": "BBBBBBBBBBBB", "errmsg": rawdata}
-                return json_data
-        except:
-            json_data = {"usermac": "BBBBBBBBBBBB", "errmsg": rawdata}
             return json_data
+        else:
+            logging.warning("DNSMASQ log cannot json format, msg: %s" % rawdata)
+            return False
+
 
     @staticmethod
     def data_jsonlog(json_data):
         """
         原始日志直接为json或者经过处理后成为json格式的日志数据传进来进行预处理
         re修复特殊字符bug,并且进行json解析返回
-        可以直接传进来的日志:Nginx:access.log, Tomcat:portal.log
+        可以直接传进来的日志:Nginx:access.log, Tomcat:portal.log DPI:dpi.log
         Args:
             json_data:已经是json格式但还没有json.loads的data
         Returns:
@@ -267,12 +239,12 @@ class FileBeat(object):
             data = json.loads(fixed)
         except:
             data = json_data
-        return data
-
-
+            return data
+        else:
+            return False
 
     @classmethod
-    def log_type_switch(cls, logtype, rawdata):
+    def log_type_switch(cls, logtype, rawdata, redis_conn=None):
         """
         根据filebeat.json里的logtype来执行不同日志格式的处理,完成后返回处理好的json格式日志
         Args:
@@ -280,13 +252,22 @@ class FileBeat(object):
             rawdata:
         :return:
         """
-
-        switch = {
-            "kea": cls.data_kea_yuchuli(rawdata),
-            "dnsmasq": cls.data_dnsmasq_yuchuli(rawdata),
-            "json": rawdata,
-        }
-        return cls.data_jsonlog(switch.get(logtype))
+        if logtype == "json":
+            redis_conn=None
+            return cls.data_jsonlog(rawdata)
+        elif logtype == "kea":
+            kea_data = cls.data_kea_yuchuli(rawdata, redis_conn)
+            if kea_data:
+                return cls.data_jsonlog(kea_data)
+        elif logtype == "dnsmasq":
+            redis_conn=None
+            dns_data = cls.data_dnsmasq_yuchuli(rawdata)
+            if dns_data:
+                return cls.data_jsonlog(dns_data)
+        else:
+            redis_conn=None
+            logging.error('logtype set wrong, please check *.json file')
+            return False
 
 
 
@@ -452,7 +433,7 @@ def run():
     运行任务
     Returns:
     """
-    FileBeat.init_log("./filebeat", logging.ERROR)
+    FileBeat.init_log("./filebeat", logging.WARNING)
 
     try:
         conf_file = sys.argv[1]
@@ -474,21 +455,13 @@ def run():
 
     logtype = conf['filebeat']['logtype']
 
-    mysql_config = {
-        'user': conf['mysql']['user'],
-        'password': conf['mysql']['password'],
-        'host': conf['mysql']['host'],
-        'db': conf['mysql']['db'],
-        'charset': conf['mysql']['charset'],
-        'cursorclass': pymysql.cursors.DictCursor
-    }
     redis_config = {
         'host': conf['redis']['host'],
         'port': conf['redis']['prot'],
         'db': conf['redis']['db']
         # 'password': conf['redis']['password'],
     }
-    mysql_conn = pymysql.connect(**mysql_config)
+
     redis_conn = redis.StrictRedis(**redis_config)
     # beat_hostname = socket.gethostname()
     # try:
@@ -514,11 +487,11 @@ def run():
         while True:
             # 如果文件不存在, 等待当前文件生成
             while FileBeat.is_non_zero_file(current_file_path) is False:
-                logging.info("waiting file %s create" % current_file_path)
+                logging.warning("waiting file %s create" % current_file_path)
                 time.sleep(60)
                 current_file_path = FileBeat.get_current_path(file_path, file_date_ext)
             # 创建子进程tail文件
-            logging.info("start tail file " + current_file_path)
+            logging.warning("start tail file " + current_file_path)
             (process, poll) = FileBeat.tail_file(current_file_path, from_head)
             if process is False:
                 error_str = poll
@@ -530,16 +503,14 @@ def run():
                     # 统一转换为unicode编码
                     data_unicode = data.decode(encoding, 'ignore')
                     if FileBeat.data_filter(data_unicode, include_lines, exclude_lines):
-                        data_json = FileBeat.log_type_switch(logtype, data_unicode)
-                        try:
+                        data_json = FileBeat.log_type_switch(logtype, data_unicode, redis_conn)
+                        if data_json:
                             if 'usermac' not in data_json.keys():
-                                FileBeat.data_insert_usermac(data_json, mysql_conn, redis_conn)
-                            if FileBeat.publish_to_logstash(sockets, data_json, fields) is False:
+                                FileBeat.data_insert_usermac(data_json, redis_conn)
+                            elif FileBeat.publish_to_logstash(sockets, data_json, fields) is False:
                                 logging.error("publish to logstash fail [%s]" % data)
                             else:
                                 logging.info("publish to logstash success")
-                        except:
-                            logging.error("data format to json fail, [%s]" % data)
                 else:
                     # 若当前目标日志文件名变化, 则跳出循环, 读取新的文件
                     current_file_path = FileBeat.get_current_path(file_path, file_date_ext)
