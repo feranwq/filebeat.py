@@ -241,7 +241,7 @@ class FileBeat(object):
             try:
                 regex = re.compile(r'\\(?![/u"])')
                 fixed = regex.sub(r"\\\\", rawdata)
-                json_data = json.loads(rawdata)
+                json_data = json.loads(fixed)
                 return json_data
             except:
                 return rawdata
@@ -494,6 +494,7 @@ def run():
                     data_unicode = data.decode(encoding, 'ignore')
                     if FileBeat.data_filter(data_unicode, include_lines, exclude_lines):
                         data_json = FileBeat.log_type_switch(logtype, data_unicode, redis_conn)
+                        # 此处逻辑待优化,会有异常日志导致程序崩溃
                         if data_json:
                             if 'usermac' not in data_json.keys():
                                 FileBeat.data_insert_usermac(data_json, redis_conn)
