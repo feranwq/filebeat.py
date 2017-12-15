@@ -64,7 +64,11 @@ class FileBeat(object):
             if fields is not None:
                 for key, value in fields.iteritems():
                     data[key] = value
-            packet_data = json.dumps(data) + '\r\n'
+            try:
+                packet_data = json.dumps(data) + '\r\n'
+            except Exception, e:
+                logging.error("publish to logstash faild, cannot json.dumps data, msg: %s %s" % (data, e))
+                return False
 
             # 随机选取出一个有效的socket通道
             random_address = cls.__random_choice_socket(sockets)
@@ -216,32 +220,12 @@ class FileBeat(object):
         re_dns = re.match(pre_dns, rawdata)
         if re_dns:
             json_data = {"time": re_dns.group(1), "userip": re_dns.group(4), "querydomain": re_dns.group(3)}
+            logging.info('DNSMASQ log format ok, msg: %s' % json_data)
             return json_data
         else:
             logging.warning("DNSMASQ log cannot json format, msg: %s" % rawdata)
             return False
 
-
-    @staticmethod
-    def data_jsonlog(json_data):
-        """
-        原始日志直接为json或者经过处理后成为json格式的日志数据传进来进行预处理
-        re修复特殊字符bug,并且进行json解析返回
-        可以直接传进来的日志:Nginx:access.log, Tomcat:portal.log DPI:dpi.log
-        Args:
-            json_data:已经是json格式但还没有json.loads的data
-        Returns:
-            data:json解析后的data,type为字典
-        """
-        try:
-            regex = re.compile(r'\\(?![/u"])')
-            fixed = regex.sub(r"\\\\", json_data)
-            data = json.loads(fixed)
-        except:
-            data = json_data
-            return data
-        else:
-            return False
 
     @classmethod
     def log_type_switch(cls, logtype, rawdata, redis_conn=None):
@@ -254,16 +238,22 @@ class FileBeat(object):
         """
         if logtype == "json":
             redis_conn=None
-            return cls.data_jsonlog(rawdata)
+            try:
+                regex = re.compile(r'\\(?![/u"])')
+                fixed = regex.sub(r"\\\\", rawdata)
+                json_data = json.loads(rawdata)
+                return json_data
+            except:
+                return rawdata
         elif logtype == "kea":
             kea_data = cls.data_kea_yuchuli(rawdata, redis_conn)
             if kea_data:
-                return cls.data_jsonlog(kea_data)
+                return kea_data
         elif logtype == "dnsmasq":
             redis_conn=None
             dns_data = cls.data_dnsmasq_yuchuli(rawdata)
             if dns_data:
-                return cls.data_jsonlog(dns_data)
+                return dns_data
         else:
             redis_conn=None
             logging.error('logtype set wrong, please check *.json file')
@@ -507,10 +497,10 @@ def run():
                         if data_json:
                             if 'usermac' not in data_json.keys():
                                 FileBeat.data_insert_usermac(data_json, redis_conn)
-                            elif FileBeat.publish_to_logstash(sockets, data_json, fields) is False:
-                                logging.error("publish to logstash fail [%s]" % data)
+                            if FileBeat.publish_to_logstash(sockets, data_json, fields) is False:
+                                logging.error("publish to logstash fail [%s]" % data_json)
                             else:
-                                logging.info("publish to logstash success")
+                                logging.info("publish to logstash success [%s]" % data_json)
                 else:
                     # 若当前目标日志文件名变化, 则跳出循环, 读取新的文件
                     current_file_path = FileBeat.get_current_path(file_path, file_date_ext)
