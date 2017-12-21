@@ -1,0 +1,86 @@
+-rw-r--r-- 1 root root 513M Dec 20 14:35 500dns-test.log
+-rw-r--r-- 1 root root 513M Dec 20 14:36 500dpi-test.log
+-rw-r--r-- 1 root root 513M Dec 20 14:40 500kea-test.log
+-rw-r--r-- 1 root root 513M Dec 20 14:41 500nginx-test.log
+-rw-r--r-- 1 root root 513M Dec 20 14:41 500tomcat-test.log
+
+
+-rw-r--r-- 1 root root 299M Dec 20 15:39 /tmp/dns.log
+-rw-r--r-- 1 root root 770M Dec 20 15:22 /tmp/dpi.log
+-rw-r--r-- 1 root root 164M Dec 20 16:00 /tmp/kea.log
+-rw-r--r-- 1 root root 600M Dec 20 16:09 /tmp/nginx.log
+-rw-r--r-- 1 root root 818M Dec 20 16:05 /tmp/tomcat.log
+
+# wc -l 500*
+   6807554 500dns-test.log
+   2969448 500dpi-test.log
+   2792021 500kea-test.log
+   1215514 500nginx-test.log
+   2915377 500tomcat-test.log
+
+# wc -l *.log
+   1435062 dns.log
+   2969448 dpi.log
+    899869 kea.log
+   1215524 nginx.log
+   2915377 tomcat.log
+
+
+Every 1.0s: stat dpi.log     417S           input:1.23MB/s   output:1.84MB/s                                                                                                            Wed Dec 20 15:23:32 2017
+                                            input:7120row/s   output:7120row/s
+  File: ‘dpi.log’
+  Size: 807181325       Blocks: 1576536    IO Block: 4096   regular file
+Device: 801h/2049d      Inode: 86          Links: 1
+Access: (0644/-rw-r--r--)  Uid: (    0/    root)   Gid: (    0/    root)
+Access: 2017-12-20 15:15:24.561710000 +0800
+Modify: 2017-12-20 15:22:21.522078621 +0800
+Change: 2017-12-20 15:22:21.522078621 +0800
+
+
+Every 1.0s: stat dns.log       197S         input:2.6MB/s   output:1.51MB/s                                                                                                            Wed Dec 20 15:39:36 2017
+                                            input:34556row/s   output:7284row/s
+  File: ‘dns.log’
+  Size: 312902476       Blocks: 611144     IO Block: 4096   regular file
+Device: 801h/2049d      Inode: 92          Links: 1
+Access: (0644/-rw-r--r--)  Uid: (    0/    root)   Gid: (    0/    root)
+Access: 2017-12-20 15:36:10.462126748 +0800
+Modify: 2017-12-20 15:39:27.312499265 +0800
+Change: 2017-12-20 15:39:27.312499265 +0800
+
+
+Every 1.0s: stat kea.log         146S      input:3.51MB/s   output:1.12MB/s                                                                                                             Wed Dec 20 16:01:26 2017
+                                            input:19123row/s   output:5487row/s
+  File: ‘kea.log’
+  Size: 171530150       Blocks: 335032     IO Block: 4096   regular file
+Device: 801h/2049d      Inode: 93          Links: 1
+Access: (0644/-rw-r--r--)  Uid: (    0/    root)   Gid: (    0/    root)
+Access: 2017-12-20 15:40:13.755708443 +0800
+Modify: 2017-12-20 16:00:42.834883857 +0800
+Change: 2017-12-20 16:00:42.834883857 +0800
+
+
+
+Every 1.0s: stat tomcat.log      237S      input:2.16MB/s   output:3.45MB/s                                                                                                              Wed Dec 20 16:06:25 2017
+                                            input:12301row/s   output:12301row/s
+  File: ‘tomcat.log’
+  Size: 857562397       Blocks: 1674936    IO Block: 4096   regular file
+Device: 801h/2049d      Inode: 94          Links: 1
+Access: (0644/-rw-r--r--)  Uid: (    0/    root)   Gid: (    0/    root)
+Access: 2017-12-20 16:01:59.673282497 +0800
+Modify: 2017-12-20 16:05:56.887826300 +0800
+Change: 2017-12-20 16:05:56.887826300 +0800
+
+
+
+Every 1.0s: stat nginx.log        183S    input:2.80MB/s   output:3.27MB/s                                                                                                         Wed Dec 20 16:16:33 2017
+                                          input:6642row/s   output:6642row/s
+  File: ‘nginx.log’
+  Size: 628732119       Blocks: 1228008    IO Block: 4096   regular file
+Device: 801h/2049d      Inode: 95          Links: 1
+Access: (0644/-rw-r--r--)  Uid: (    0/    root)   Gid: (    0/    root)
+Access: 2017-12-20 16:06:53.300017302 +0800
+Modify: 2017-12-20 16:09:56.431534062 +0800
+Change: 2017-12-20 16:09:56.431534062 +0800
+
+
+

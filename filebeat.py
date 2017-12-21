@@ -195,18 +195,32 @@ class FileBeat(object):
             redis_conn.set(userip, "AAAAAAAAAAAA")
             redis_conn.expire(userip, 600)
 
-
     @staticmethod
     def data_kea_yuchuli(rawdata, redis_conn=None):
+        """
+        按行传入kea日志,进行正则匹配.首先匹配是否为DHCPACK日志,如果是更新到redis,更新完成或者匹配DHCPACK失败继续匹配是否为正常DHCP交互报文
+        如果匹配成功则格式化字典return
+        Args:
+            rawdata:每一行kea日志
+            redis_conn:redis长连接
+        Returns:
+            json_data:格式化为字典的日志数据
+        """
+        # 预编译正则
         pre_dhcp = re.compile(r'(\d+-\d+-\d+.*?\d+:\d+:\d+).*?(\w{2}:\w{2}:\w{2}:\w{2}:\w{2}:\w{2}).*?(DHCPDISCOVER|DHCPOFFER|DHCPREQUEST|DHCPACK|DHCPNAK).*?')
         pre_macmap = re.compile(r'.*?(\w{2}:\w{2}:\w{2}:\w{2}:\w{2}:\w{2}).*?DHCPACK.*?\d+\.\d+\.\d+\.\d+.*?(?!.*255)(\d+\.\d+\.\d+\.\d+)')
-        macmap = re.search(pre_macmap, rawdata)
-        if macmap:
-            redis_conn.set(macmap.group(2), macmap.group(1))
-            redis_conn.expire(macmap.group(2), 10000)
-            logging.warning('update ip: %s mac:%s to redis' % (macmap.group(2), macmap.group(1)))
+    
+        
+        # 匹配是否DHCP交互日志
         re_kea = re.search(pre_dhcp, rawdata)
         if re_kea:
+            # 如果是交互日志先判断是否为DHCPACK日志,是的话进行redis更新
+            if "DHCPACK" == re_kea.group(3):
+                macmap = re.search(pre_macmap, rawdata)
+                if macmap:
+                    redis_conn.set(macmap.group(2), macmap.group(1))
+                    redis_conn.expire(macmap.group(2), 10000)
+                    logging.info('update ip: %s mac:%s to redis' % (macmap.group(2), macmap.group(1)))
             json_data = {"time": re_kea.group(1), "keatype": re_kea.group(3), "usermac": re_kea.group(2)}
             return json_data
         else:
